@@ -1,17 +1,19 @@
-let workouts = require('../models/workoutModel');
+// Импортируем модель, созданную Sequelize
+const { Workout } = require('../models');
 
-const getAllWorkouts = (req, res, next) => {
+const getAllWorkouts = async (req, res, next) => {
     try {
+        const workouts = await Workout.findAll();
         res.status(200).json(workouts);
     } catch (error) {
         next(error);
     }
 };
 
-const getWorkoutById = (req, res, next) => {
+const getWorkoutById = async (req, res, next) => {
     try {
         const id = parseInt(req.params.id);
-        const workout = workouts.find(w => w.id === id);
+        const workout = await Workout.findByPk(id);
 
         if (!workout) {
             return res.status(404).json({ error: "Тренировка с таким ID не найдена" });
@@ -22,70 +24,62 @@ const getWorkoutById = (req, res, next) => {
     }
 };
 
-const createWorkout = (req, res, next) => {
+const createWorkout = async (req, res, next) => {
     try {
-        const { title, duration, difficulty } = req.body;
+        const { title, duration, difficulty, calories } = req.body;
 
         if (!title || !duration) {
             return res.status(400).json({ error: "Необходимы поля title и duration" });
         }
 
-        const newWorkout = {
-            id: workouts.length > 0 ? workouts[workouts.length - 1].id + 1 : 1,
+        const newWorkout = await Workout.create({
             title,
             duration,
-            difficulty: difficulty || "Не указана"
-        };
+            difficulty: difficulty || "Не указана",
+            calories: calories || 0 
+        });
 
-        workouts.push(newWorkout);
         res.status(201).json(newWorkout);
     } catch (error) {
         next(error);
     }
 };
 
-const updateWorkout = (req, res, next) => {
+const updateWorkout = async (req, res, next) => {
     try {
         const id = parseInt(req.params.id);
-        const { title, duration, difficulty } = req.body;
-
-        const workoutIndex = workouts.findIndex(w => w.id === id);
-
-        if (workoutIndex === -1) {
-            return res.status(404).json({ error: "Тренировка с таким ID не найдена" });
-        }
+        const { title, duration, difficulty, calories} = req.body;
 
         if (!title || !duration) {
             return res.status(400).json({ error: "Необходимы поля title и duration для обновления" });
         }
 
-        workouts[workoutIndex] = { id, title, duration, difficulty };
-        res.status(200).json(workouts[workoutIndex]);
-    } catch (error) {
-        next(error);
-    }
-};
-
-const deleteWorkout = (req, res, next) => {
-    try {
-        const id = parseInt(req.params.id);
-        const workoutIndex = workouts.findIndex(w => w.id === id);
-
-        if (workoutIndex === -1) {
+        const workout = await Workout.findByPk(id);
+        if (!workout) {
             return res.status(404).json({ error: "Тренировка с таким ID не найдена" });
         }
 
-        const deletedWorkout = workouts.splice(workoutIndex, 1);
-        res.status(200).json({ message: "Тренировка успешно удалена", workout: deletedWorkout[0] });
+        await workout.update({ title, duration, difficulty, calories });
+        res.status(200).json(workout);
     } catch (error) {
         next(error);
     }
 };
 
-module.exports = {
-    getAllWorkouts,
-    getWorkoutById,
-    createWorkout,
-    updateWorkout,
-    deleteWorkout
+const deleteWorkout = async (req, res, next) => {
+    try {
+        const id = parseInt(req.params.id);
+        
+        const deletedCount = await Workout.destroy({ where: { id } });
+
+        if (deletedCount === 0) {
+            return res.status(404).json({ error: "Тренировка с таким ID не найдена" });
+        }
+
+        res.status(200).json({ message: "Тренировка успешно удалена" });
+    } catch (error) {
+        next(error);
+    }
 };
+
+module.exports = { getAllWorkouts, getWorkoutById, createWorkout, updateWorkout, deleteWorkout };
