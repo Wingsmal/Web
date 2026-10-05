@@ -1,11 +1,16 @@
-const express = require('express');
-const app = express();
+require('dotenv').config();
+
+const express = require('express'); 
+const app = express(); 
+
 const workoutRoutes = require('./routes/workoutRoutes');
+const authRoutes = require('./routes/authRoutes');
 
 const PORT = 3000;
 
 app.use(express.json());
 
+app.use('/api/auth', authRoutes); 
 app.use('/api/workouts', workoutRoutes);
 
 app.use((req, res) => {

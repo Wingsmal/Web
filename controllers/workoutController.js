@@ -1,4 +1,4 @@
-// Импортируем модель, созданную Sequelize
+
 const { Workout } = require('../models');
 
 const getAllWorkouts = async (req, res, next) => {
