@@ -1,10 +1,11 @@
-.<%- include('partials/header') %>
+<%- include('partials/header') %>
 
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h2>Список доступных тренировок</h2>
     <% if (isAuth) { %>
         <a href="/workouts/add?auth=1" class="btn btn-primary">Добавить новую</a>
     <% } %>
+        <a href="/workouts/simulate-error" class="btn btn-danger">Вызвать 500</a>
 </div>
 
 <div class="row">

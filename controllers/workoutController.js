@@ -15,13 +15,31 @@ const getAddForm = (req, res) => {
 
 const createWorkout = async (req, res, next) => {
     try {
-        const { title, duration, difficulty, calories } = req.body;
-        
+        let { title, duration, difficulty, calories } = req.body;
+
+        title = title ? title.trim() : ''; 
+        duration = parseInt(duration);
+        calories = calories ? parseInt(calories) : 0;
+
+        let errorMessage = null;
+
+        if (!title) {
+            errorMessage = "Название не может быть пустым или состоять только из пробелов.";
+        } else if (duration < 0) {
+            errorMessage = "Длительность не может быть отрицательной.";
+        } else if (calories < 0) {
+            errorMessage = "Сжигаемые калории не могут быть отрицательными.";
+        }
+
+        if (errorMessage) {
+            return res.render('add', { isAuth: true, errorMessage });
+        }
+
         await Workout.create({
             title,
             duration,
             difficulty: difficulty || "Не указана",
-            calories: calories || 0
+            calories
         });
 
         res.redirect('/workouts?auth=1');
@@ -45,4 +63,12 @@ const getWorkoutById = async (req, res, next) => {
     }
 };
 
-module.exports = { getAllWorkouts, getAddForm, createWorkout, getWorkoutById };
+const simulateError = (req, res, next) => {
+    try {
+        throw new Error("Тестовая ошибка");
+    } catch (error) {
+        next(error); 
+    }
+};
+
+module.exports = { getAllWorkouts, getAddForm, createWorkout, getWorkoutById, simulateError };

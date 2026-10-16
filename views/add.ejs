@@ -3,30 +3,34 @@
 <div class="card shadow-sm w-50 mx-auto">
     <div class="card-header bg-primary text-white">Регистрация новой тренировки</div>
     <div class="card-body">
-        <form action="/workouts/add?auth=1" method="POST">
-            <div class="mb-3">
-                <label class="form-label">Наименование:</label>
-                <input type="text" name="title" class="form-control" required>
-            </div>
-            <div class="mb-3">
-                <label class="form-label">Длительность (мин):</label>
-                <input type="number" name="duration" class="form-control" required>
-            </div>
-            <div class="mb-3">
-                <label class="form-label">Уровень сложности:</label>
-                <select name="difficulty" class="form-select">
-                    <option value="Легкая">Легкая</option>
-                    <option value="Средняя">Средняя</option>
-                    <option value="Тяжелая">Тяжелая</option>
-                </select>
-            </div>
-            <div class="mb-3">
-                <label class="form-label">Затраты энергии (ккал):</label>
-                <input type="number" name="calories" class="form-control">
-            </div>
-            <button type="submit" class="btn btn-success w-100">Сохранить запись</button>
-        </form>
-    </div>
+    <% if (typeof errorMessage !== 'undefined' && errorMessage) { %>
+        <div class="alert alert-danger"><%= errorMessage %></div>
+    <% } %>
+
+    <form action="/workouts/add?auth=1" method="POST">
+        <div class="mb-3">
+            <label class="form-label">Наименование:</label>
+            <input type="text" name="title" class="form-control" required pattern=".*\S+.*" title="Не может состоять только из пробелов">
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Длительность (мин):</label>
+            <input type="number" name="duration" class="form-control" min="0" required>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Уровень сложности:</label>
+            <select name="difficulty" class="form-select">
+                <option value="Легкая">Легкая</option>
+                <option value="Средняя">Средняя</option>
+                <option value="Тяжелая">Тяжелая</option>
+            </select>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Затраты энергии (ккал):</label>
+            <input type="number" name="calories" class="form-control" min="0">
+        </div>
+        <button type="submit" class="btn btn-success w-100">Сохранить запись</button>
+    </form>
+</div>
 </div>
 
 <%- include('partials/footer') %>
