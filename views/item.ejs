@@ -1,0 +1,17 @@
+<%- include('partials/header') %>
+
+<div class="card shadow-sm w-75 mx-auto">
+    <div class="card-body">
+        <h2 class="card-title text-primary"><%= workout.title %></h2>
+        <hr>
+        <ul class="list-group list-group-flush mb-3">
+            <li class="list-group-item"><strong>Длительность:</strong> <%= workout.duration %> мин.</li>
+            <li class="list-group-item"><strong>Сложность:</strong> <%= workout.difficulty %></li>
+            <li class="list-group-item"><strong>Сжигаемые калории:</strong> <%= workout.calories %> ккал.</li>
+            <li class="list-group-item"><strong>Дата регистрации:</strong> <%= workout.createdAt.toLocaleString() %></li>
+        </ul>
+        <a href="/workouts<%= isAuth ? '?auth=1' : '' %>" class="btn btn-secondary">Вернуться к списку</a>
+    </div>
+</div>
+
+<%- include('partials/footer') %>
