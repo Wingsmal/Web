@@ -9,12 +9,12 @@
 
     <form action="/workouts/add?auth=1" method="POST">
         <div class="mb-3">
-            <label class="form-label">Наименование:</label>
-            <input type="text" name="title" class="form-control" required pattern=".*\S+.*" title="Не может состоять только из пробелов">
+            <label class="form-label">Длительность (мин):</label>
+            <input type="number" name="duration" class="form-control" min="0" max="10000" required>
         </div>
         <div class="mb-3">
             <label class="form-label">Длительность (мин):</label>
-            <input type="number" name="duration" class="form-control" min="0" required>
+            <input type="number" name="duration" class="form-control" min="0" max="1440" required>
         </div>
         <div class="mb-3">
             <label class="form-label">Уровень сложности:</label>

@@ -2,6 +2,10 @@ const { Workout } = require('../models');
 
 const getAllWorkouts = async (req, res, next) => {
     try {
+        if (req.query.auth && req.query.auth !== '1') {
+            return res.redirect('/workouts');
+        }
+
         const workouts = await Workout.findAll();
         res.render('index', { workouts, isAuth: req.query.auth === '1' });
     } catch (error) {
@@ -25,10 +29,12 @@ const createWorkout = async (req, res, next) => {
 
         if (!title) {
             errorMessage = "Название не может быть пустым или состоять только из пробелов.";
-        } else if (duration < 0) {
-            errorMessage = "Длительность не может быть отрицательной.";
-        } else if (calories < 0) {
-            errorMessage = "Сжигаемые калории не могут быть отрицательными.";
+        } else if (duration < 0 || duration > 10000) {
+            // ДОБАВИЛИ ПРОВЕРКУ НА МАКСИМУМ
+            errorMessage = "Длительность должна быть от 0 до 10000 минут.";
+        } else if (calories < 0 || calories > 50000) {
+            // ДОБАВИЛИ ПРОВЕРКУ НА МАКСИМУМ
+            errorMessage = "Сжигаемые калории должны быть от 0 до 50000.";
         }
 
         if (errorMessage) {
