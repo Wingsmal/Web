@@ -3,6 +3,7 @@ const { Workout } = require('../models');
 
 const getAllWorkouts = async (req, res, next) => {
     try {
+        await new Promise(resolve => setTimeout(resolve, 3000));
         const workouts = await Workout.findAll();
         res.status(200).json(workouts);
     } catch (error) {
