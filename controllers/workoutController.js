@@ -114,4 +114,29 @@ const deleteExercise = async (req, res, next) => {
     }
 };
 
-module.exports = { getAllWorkouts, getWorkoutById, createWorkout, updateWorkout, deleteWorkout, addExercise, deleteExercise };
+// Обновление упражнения внутри массива (ЛАБА 6)
+const updateExercise = async (req, res, next) => {
+    try {
+        const { id, exerciseId } = req.params;
+        const { name, sets, reps } = req.body;
+        
+        const updatedWorkout = await Workout.findOneAndUpdate(
+            { _id: id, "exercises._id": exerciseId },
+            { 
+                $set: { 
+                    "exercises.$.name": name,
+                    "exercises.$.sets": sets,
+                    "exercises.$.reps": reps
+                } 
+            },
+            { new: true }
+        );
+
+        if (!updatedWorkout) return res.status(404).json({ error: "Тренировка или упражнение не найдены" });
+        res.status(200).json(updatedWorkout);
+    } catch (error) {
+        next(error);
+    }
+};
+
+module.exports = { getAllWorkouts, getWorkoutById, createWorkout, updateWorkout, deleteWorkout, addExercise, deleteExercise, updateExercise };

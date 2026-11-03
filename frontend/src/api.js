@@ -21,5 +21,6 @@ export const deleteWorkout = (id) => api.delete(`/workouts/${id}`);
 
 export const addExerciseToWorkout = (id, exercise) => api.post(`/workouts/${id}/exercises`, exercise);
 export const deleteExerciseFromWorkout = (id, exerciseId) => api.delete(`/workouts/${id}/exercises/${exerciseId}`);
+export const updateExerciseInWorkout = (id, exerciseId, exercise) => api.put(`/workouts/${id}/exercises/${exerciseId}`, exercise);
 
 export default api;

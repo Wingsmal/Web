@@ -237,8 +237,8 @@
 
 .workouts-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 24px;
 }
 
 .workout-card {
@@ -337,7 +337,6 @@
 
 .btn-icon:hover { color: #111827; }
 
-/* Кнопка "Подробнее" */
 .btn-details {
   width: 100%;
   padding: 8px;
@@ -353,6 +352,46 @@
 .btn-details:hover {
   background-color: #e5e7eb;
 }
+.card-actions-minimal {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  gap: 8px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+
+.workout-card:hover .card-actions-minimal {
+  opacity: 1;
+}
+
+.btn-icon-action {
+  background: #f3f4f6;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 1rem;
+  color: #6b7280;
+  transition: all 0.2s ease;
+}
+
+.btn-icon-action:hover {
+  background: #e5e7eb;
+  color: #111827;
+}
+
+.btn-icon-delete:hover {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
 
 @keyframes pulse {
   0% { opacity: 1; }
