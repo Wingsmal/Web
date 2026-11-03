@@ -1,5 +1,13 @@
 import { useState, useEffect } from 'react';
-import { login, fetchWorkouts, createWorkout, updateWorkout, deleteWorkout, addExerciseToWorkout } from './api';
+import { 
+  login, 
+  fetchWorkouts, 
+  createWorkout, 
+  updateWorkout, 
+  deleteWorkout, 
+  addExerciseToWorkout, 
+  deleteExerciseFromWorkout // Убедись, что добавил эту функцию в api.js!
+} from './api';
 import './App.css';
 
 const getUserFromToken = (token) => {
@@ -28,7 +36,6 @@ function App() {
   const [editId, setEditId] = useState(null); 
   const [filter, setFilter] = useState('Все');
 
-  // НОВЫЕ СОСТОЯНИЯ ДЛЯ ЛАБЫ 6 (Модальное окно упражнений)
   const [selectedWorkout, setSelectedWorkout] = useState(null);
   const [exerciseForm, setExerciseForm] = useState({ name: '', sets: '', reps: '' });
 
@@ -41,6 +48,7 @@ function App() {
       setLoading(true);
       setError('');
       try {
+        await new Promise(resolve => setTimeout(resolve, 1500));
         const res = await fetchWorkouts(controller.signal);
         setWorkouts(res.data);
       } catch (err) {
@@ -97,8 +105,8 @@ function App() {
         alert('Ошибка при обновлении на сервере.');
       }
     } else {
-      const tempId = Date.now().toString(); // Mongoose лучше "ест" строковые временные ID
-      const newWorkout = { id: tempId, ...formData, exercises: [] }; // Добавили пустой массив
+      const tempId = Date.now().toString(); 
+      const newWorkout = { id: tempId, ...formData, exercises: [] }; 
       
       setWorkouts([...workouts, newWorkout]);
       setFormData({ title: '', duration: '', difficulty: 'Легкая' });
@@ -135,7 +143,6 @@ function App() {
     setFormData({ title: '', duration: '', difficulty: 'Легкая' });
   };
 
-  // ЛОГИКА ДОБАВЛЕНИЯ ВЛОЖЕННОГО ДОКУМЕНТА (ЛАБА 6)
   const handleAddExercise = async (e) => {
     e.preventDefault();
     if (!exerciseForm.name) return;
@@ -148,7 +155,6 @@ function App() {
       reps: parseInt(exerciseForm.reps || 10) 
     };
 
-    // Оптимистичное обновление: добавляем упражнение в модалку и в общий стейт
     const updatedWorkout = { 
       ...selectedWorkout, 
       exercises: [...(selectedWorkout.exercises || []), newExercise] 
@@ -160,7 +166,6 @@ function App() {
 
     try {
       const res = await addExerciseToWorkout(updatedWorkout.id, newExercise);
-      // Сервер вернул документ с настоящими ObjectId, обновляем UI
       setSelectedWorkout(res.data);
       setWorkouts(prev => prev.map(w => w.id === res.data.id ? res.data : w));
     } catch (err) {
@@ -170,6 +175,27 @@ function App() {
     }
   };
 
+  // ЛОГИКА УДАЛЕНИЯ УПРАЖНЕНИЯ
+  const handleDeleteExercise = async (workoutId, exerciseId) => {
+    const originalWorkout = { ...selectedWorkout };
+    const originalWorkouts = [...workouts];
+    
+    const updatedWorkout = {
+      ...selectedWorkout,
+      exercises: selectedWorkout.exercises.filter(ex => ex._id !== exerciseId)
+    };
+    
+    setSelectedWorkout(updatedWorkout);
+    setWorkouts(workouts.map(w => w.id === updatedWorkout.id ? updatedWorkout : w));
+
+    try {
+      await deleteExerciseFromWorkout(workoutId, exerciseId);
+    } catch (err) {
+      setSelectedWorkout(originalWorkout);
+      setWorkouts(originalWorkouts);
+      alert('Ошибка при удалении упражнения на сервере.');
+    }
+  };
 
   const filteredWorkouts = workouts.filter((w) => {
     if (filter === 'Все') return true;
@@ -221,11 +247,11 @@ function App() {
   return (
     <div className="app-container">
       
-      {/* МОДАЛЬНОЕ ОКНО ДЛЯ ПРОСМОТРА И ДОБАВЛЕНИЯ УПРАЖНЕНИЙ (ЛАБА 6) */}
+      {/* МОДАЛЬНОЕ ОКНО ДЛЯ ПРОСМОТРА И ДОБАВЛЕНИЯ УПРАЖНЕНИЙ */}
       {selectedWorkout && (
         <div className="modal-overlay" onClick={() => setSelectedWorkout(null)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <button className="btn-icon" onClick={() => setSelectedWorkout(null)}>×</button>
+            <button className="btn-icon" onClick={() => setSelectedWorkout(null)}>✖</button>
             <h2 style={{marginTop: 0, color: '#111827'}}>{selectedWorkout.title}</h2>
             <p style={{color: '#6b7280', marginBottom: '20px'}}>Список упражнений в этой тренировке:</p>
 
@@ -234,15 +260,22 @@ function App() {
                 <p style={{color: '#9ca3af', fontStyle: 'italic'}}>Пока нет ни одного упражнения.</p>
               ) : (
                 selectedWorkout.exercises.map(ex => (
-                  <div key={ex._id} className="exercise-item">
-                    <strong>{ex.name}</strong> <br/>
-                    <small style={{color: '#6b7280'}}>Подходов: {ex.sets} | Повторений: {ex.reps}</small>
+                  <div key={ex._id} className="exercise-item" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                    <div>
+                      <strong style={{color: '#111827'}}>{ex.name}</strong> <br/>
+                      <small style={{color: '#6b7280'}}>Подходов: {ex.sets} | Повторений: {ex.reps}</small>
+                    </div>
+                    {/* КРЕСТИК УДАЛЕНИЯ УПРАЖНЕНИЯ (ТОЛЬКО ДЛЯ АДМИНА) */}
+                    {isAdmin && (
+                      <button onClick={() => handleDeleteExercise(selectedWorkout.id, ex._id)} style={{background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '1.2rem', padding: '0 5px'}} title="Удалить">
+                        ✖
+                      </button>
+                    )}
                   </div>
                 ))
               )}
             </div>
 
-            {/* Форму добавления упражнений показываем только Админу */}
             {isAdmin && (
               <form onSubmit={handleAddExercise} style={{display: 'flex', gap: '10px', flexDirection: 'column', borderTop: '1px solid #e5e7eb', paddingTop: '20px'}}>
                 <input type="text" className="form-input" placeholder="Название упражнения" required
@@ -351,9 +384,8 @@ function App() {
                   Длительность: <strong>{workout.duration} мин</strong>
                 </div>
 
-                {/* НОВАЯ КНОПКА ПОДРОБНЕЕ */}
                 <button className="btn-details" onClick={() => setSelectedWorkout(workout)}>
-                  Показать упражнения ({workout.exercises ? workout.exercises.length : 0})
+                  Упражнения ({workout.exercises ? workout.exercises.length : 0})
                 </button>
 
                 {isAdmin && (

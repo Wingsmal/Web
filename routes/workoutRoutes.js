@@ -11,5 +11,6 @@ router.put('/:id', authenticateToken, isAdmin, workoutController.updateWorkout);
 router.delete('/:id', authenticateToken, isAdmin, workoutController.deleteWorkout);
 
 router.post('/:id/exercises', authenticateToken, isAdmin, workoutController.addExercise);
+router.delete('/:id/exercises/:exerciseId', authenticateToken, isAdmin, workoutController.deleteExercise);
 
 module.exports = router;

@@ -97,4 +97,21 @@ const addExercise = async (req, res, next) => {
     }
 };
 
-module.exports = { getAllWorkouts, getWorkoutById, createWorkout, updateWorkout, deleteWorkout, addExercise };
+const deleteExercise = async (req, res, next) => {
+    try {
+        const { id, exerciseId } = req.params;
+        
+        const updatedWorkout = await Workout.findByIdAndUpdate(
+            id,
+            { $pull: { exercises: { _id: exerciseId } } },
+            { new: true }
+        );
+
+        if (!updatedWorkout) return res.status(404).json({ error: "Тренировка не найдена" });
+        res.status(200).json(updatedWorkout);
+    } catch (error) {
+        next(error);
+    }
+};
+
+module.exports = { getAllWorkouts, getWorkoutById, createWorkout, updateWorkout, deleteWorkout, addExercise, deleteExercise };
