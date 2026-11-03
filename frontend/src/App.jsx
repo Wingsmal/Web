@@ -6,9 +6,9 @@ import {
   updateWorkout, 
   deleteWorkout, 
   addExerciseToWorkout, 
-  deleteExerciseFromWorkout,
-  updateExerciseInWorkout
+  deleteExerciseFromWorkout 
 } from './api';
+import LiveChat from './LiveChat'; // ИМПОРТ ЧАТА
 import './App.css';
 
 const getUserFromToken = (token) => {
@@ -40,6 +40,7 @@ function App() {
   const [selectedWorkout, setSelectedWorkout] = useState(null);
   const [exerciseForm, setExerciseForm] = useState({ name: '', sets: '', reps: '' });
   const [editExerciseId, setEditExerciseId] = useState(null);
+
   useEffect(() => {
     if (!token) return;
 
@@ -125,6 +126,7 @@ function App() {
   const handleDelete = async (id) => {
     const originalWorkouts = [...workouts];
     setWorkouts(workouts.filter(w => w.id !== id));
+
     try {
       await deleteWorkout(id);
     } catch (err) {
@@ -147,53 +149,31 @@ function App() {
     e.preventDefault();
     if (!exerciseForm.name) return;
 
-    if (editExerciseId) {
-      const originalWorkout = { ...selectedWorkout };
-      const updatedWorkout = {
-        ...selectedWorkout,
-        exercises: selectedWorkout.exercises.map(ex => ex._id === editExerciseId ? { ...ex, ...exerciseForm } : ex)
-      };
-      
-      setSelectedWorkout(updatedWorkout);
-      setWorkouts(workouts.map(w => w.id === updatedWorkout.id ? updatedWorkout : w));
-      setExerciseForm({ name: '', sets: '', reps: '' });
-      setEditExerciseId(null);
+    const originalWorkouts = [...workouts];
+    const newExercise = { 
+      _id: Date.now().toString(), 
+      name: exerciseForm.name, 
+      sets: parseInt(exerciseForm.sets || 1), 
+      reps: parseInt(exerciseForm.reps || 10) 
+    };
 
-      try {
-        await updateExerciseInWorkout(updatedWorkout.id, editExerciseId, exerciseForm);
-      } catch (err) {
-        setSelectedWorkout(originalWorkout);
-        setWorkouts(workouts.map(w => w.id === originalWorkout.id ? originalWorkout : w));
-        alert('Ошибка обновления упражнения!');
-      }
-    } else {
+    const updatedWorkout = { 
+      ...selectedWorkout, 
+      exercises: [...(selectedWorkout.exercises || []), newExercise] 
+    };
+    
+    setSelectedWorkout(updatedWorkout);
+    setWorkouts(workouts.map(w => w.id === updatedWorkout.id ? updatedWorkout : w));
+    setExerciseForm({ name: '', sets: '', reps: '' });
 
-      const originalWorkouts = [...workouts];
-      const newExercise = { 
-        _id: Date.now().toString(), 
-        name: exerciseForm.name, 
-        sets: parseInt(exerciseForm.sets || 1), 
-        reps: parseInt(exerciseForm.reps || 10) 
-      };
-
-      const updatedWorkout = { 
-        ...selectedWorkout, 
-        exercises: [...(selectedWorkout.exercises || []), newExercise] 
-      };
-      
-      setSelectedWorkout(updatedWorkout);
-      setWorkouts(workouts.map(w => w.id === updatedWorkout.id ? updatedWorkout : w));
-      setExerciseForm({ name: '', sets: '', reps: '' });
-
-      try {
-        const res = await addExerciseToWorkout(updatedWorkout.id, newExercise);
-        setSelectedWorkout(res.data);
-        setWorkouts(prev => prev.map(w => w.id === res.data.id ? res.data : w));
-      } catch (err) {
-        setWorkouts(originalWorkouts);
-        setSelectedWorkout(originalWorkouts.find(w => w.id === updatedWorkout.id));
-        alert('Ошибка при добавлении упражнения!');
-      }
+    try {
+      const res = await addExerciseToWorkout(updatedWorkout.id, newExercise);
+      setSelectedWorkout(res.data);
+      setWorkouts(prev => prev.map(w => w.id === res.data.id ? res.data : w));
+    } catch (err) {
+      setWorkouts(originalWorkouts);
+      setSelectedWorkout(originalWorkouts.find(w => w.id === updatedWorkout.id));
+      alert('Ошибка при добавлении упражнения!');
     }
   };
 
@@ -218,22 +198,13 @@ function App() {
     }
   };
 
-  const startEditExercise = (exercise) => {
-    setEditExerciseId(exercise._id);
-    setExerciseForm({ name: exercise.name, sets: exercise.sets, reps: exercise.reps });
-  };
-
-  const cancelEditExercise = () => {
-    setEditExerciseId(null);
-    setExerciseForm({ name: '', sets: '', reps: '' });
-  };
-
   const filteredWorkouts = workouts.filter((w) => {
     if (filter === 'Все') return true;
     return w.difficulty === filter;
   });
 
   const totalDuration = filteredWorkouts.reduce((sum, w) => sum + parseInt(w.duration || 0), 0);
+
   const getBadgeClass = (diff) => {
     switch (diff) {
       case 'Легкая': return 'badge-easy';
@@ -243,6 +214,7 @@ function App() {
     }
   };
 
+  // ЭКРАН ЛОГИНА
   if (!token) {
     return (
       <div className="app-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
@@ -259,6 +231,7 @@ function App() {
     );
   }
 
+  // ГЛАВНЫЙ ЭКРАН (С чатом!)
   return (
     <div className="app-container">
       
@@ -281,7 +254,6 @@ function App() {
                     </div>
                     {isAdmin && (
                       <div>
-                        <button onClick={() => startEditExercise(ex)} style={{background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', fontSize: '1rem', padding: '0 5px'}} title="Изменить">✎</button>
                         <button onClick={() => handleDeleteExercise(selectedWorkout.id, ex._id)} style={{background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '1rem', padding: '0 5px'}} title="Удалить">✖</button>
                       </div>
                     )}
@@ -292,7 +264,7 @@ function App() {
 
             {isAdmin && (
               <form onSubmit={handleAddExercise} style={{display: 'flex', gap: '10px', flexDirection: 'column', borderTop: '1px solid #e5e7eb', paddingTop: '20px'}}>
-                <h4 style={{margin: '0', color: '#374151'}}>{editExerciseId ? 'Редактировать упражнение' : 'Новое упражнение'}</h4>
+                <h4 style={{margin: '0', color: '#374151'}}>Новое упражнение</h4>
                 <input type="text" className="form-input" placeholder="Название упражнения" required
                   value={exerciseForm.name} onChange={e => setExerciseForm({...exerciseForm, name: e.target.value})} />
                 <div style={{display: 'flex', gap: '10px'}}>
@@ -302,8 +274,7 @@ function App() {
                     value={exerciseForm.reps} onChange={e => setExerciseForm({...exerciseForm, reps: e.target.value})} />
                 </div>
                 <div style={{display: 'flex', gap: '10px'}}>
-                  {editExerciseId && <button type="button" className="btn-delete" style={{flex: 1}} onClick={cancelEditExercise}>Отмена</button>}
-                  <button type="submit" className="btn-blue" style={{flex: editExerciseId ? 1 : '1 1 auto', height: '40px'}}>{editExerciseId ? 'Сохранить' : 'Добавить'}</button>
+                  <button type="submit" className="btn-blue" style={{flex: '1 1 auto', height: '40px'}}>Добавить</button>
                 </div>
               </form>
             )}
@@ -324,7 +295,7 @@ function App() {
                 <div className="stats-item"><span>Время:</span> <strong className="stats-value">{totalDuration} мин</strong></div>
               </>
             )}
-            <button className="btn-delete" style={{ marginLeft: '10px' }} onClick={handleLogout}>Выйти</button>
+            <button className="btn-delete" style={{ marginLeft: '10px', height: 'auto', padding: '8px 16px' }} onClick={handleLogout}>Выйти</button>
           </div>
         </div>
 
@@ -368,7 +339,7 @@ function App() {
                   </div>
                   <div className="actions-row" style={{ justifyContent: 'flex-end', borderTop: 'none', paddingTop: 0 }}>
                     <div className="form-actions">
-                      {editId && <button type="button" className="btn-delete" onClick={cancelEdit}>Отмена</button>}
+                      {editId && <button type="button" className="btn-delete" style={{height: '45px'}} onClick={cancelEdit}>Отмена</button>}
                       <button type="submit" className={editId ? 'btn-outline-green' : 'btn-outline-blue'}>{editId ? 'Сохранить изменения' : 'Добавить'}</button>
                     </div>
                   </div>
@@ -380,47 +351,45 @@ function App() {
               <div className="empty-state">Нет данных. Добавьте тренировку.</div>
             ) : (
               <div className="workouts-grid">
-                {filteredWorkouts.length === 0 ? (
-          <div className="empty-state">Нет данных. Добавьте тренировку.</div>
-        ) : (
-          <div className="workouts-grid">
-            {filteredWorkouts.map((workout) => (
-              <div key={workout.id} className="workout-card">
+                {filteredWorkouts.map((workout) => (
+                  <div key={workout.id} className="workout-card">
 
-                {isAdmin && (
-                  <div className="card-actions-minimal">
-                    <button className="btn-icon-action" onClick={() => startEdit(workout)} title="Изменить">
-                      ✎
+                    {isAdmin && (
+                      <div className="card-actions-minimal">
+                        <button className="btn-icon-action" onClick={() => startEdit(workout)} title="Изменить">
+                          ✎
+                        </button>
+                        <button className="btn-icon-action btn-icon-delete" onClick={() => handleDelete(workout.id)} title="Удалить">
+                          ✖
+                        </button>
+                      </div>
+                    )}
+
+                    <span className={`badge ${getBadgeClass(workout.difficulty)}`} style={{position: 'static', display: 'inline-block', width: 'max-content', marginBottom: '10px'}}>
+                      {workout.difficulty}
+                    </span>
+
+                    <h3 className="card-title" style={{paddingRight: '0'}}>{workout.title}</h3>
+                    
+                    <div className="card-info">
+                      Длительность: <strong>{workout.duration} мин</strong>
+                    </div>
+
+                    <button className="btn-details" onClick={() => setSelectedWorkout(workout)}>
+                      Упражнения ({workout.exercises ? workout.exercises.length : 0})
                     </button>
-                    <button className="btn-icon-action btn-icon-delete" onClick={() => handleDelete(workout.id)} title="Удалить">
-                      ✖
-                    </button>
+
                   </div>
-                )}
-
-                <span className={`badge ${getBadgeClass(workout.difficulty)}`} style={{position: 'static', display: 'inline-block', width: 'max-content', marginBottom: '10px'}}>
-                  {workout.difficulty}
-                </span>
-
-                <h3 className="card-title" style={{paddingRight: '0'}}>{workout.title}</h3>
-                
-                <div className="card-info">
-                  Длительность: <strong>{workout.duration} мин</strong>
-                </div>
-
-                <button className="btn-details" onClick={() => setSelectedWorkout(workout)}>
-                  Упражнения ({workout.exercises ? workout.exercises.length : 0})
-                </button>
-
-              </div>
-            ))}
-          </div>
-        )}
+                ))}
               </div>
             )}
           </>
         )}
       </div>
+
+      {/* ЧАТ ДОБАВЛЕН ЗДЕСЬ - ВИДЕН ВСЕМ АВТОРИЗОВАННЫМ */}
+      <LiveChat user={user} />
+
     </div>
   );
 }

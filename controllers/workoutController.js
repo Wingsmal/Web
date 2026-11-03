@@ -37,6 +37,11 @@ const createWorkout = async (req, res, next) => {
             calories: calories || 0,
             exercises: exercises || [] 
         });
+        
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('system notification', `Админ добавил новую тренировку: "${title}"!`);
+        }
 
         res.status(201).json(newWorkout);
     } catch (error) {
