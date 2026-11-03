@@ -19,4 +19,6 @@ export const createWorkout = (workout) => api.post('/workouts', workout);
 export const updateWorkout = (id, workout) => api.put(`/workouts/${id}`, workout);
 export const deleteWorkout = (id) => api.delete(`/workouts/${id}`);
 
+export const addExerciseToWorkout = (id, exercise) => api.post(`/workouts/${id}/exercises`, exercise);
+
 export default api;

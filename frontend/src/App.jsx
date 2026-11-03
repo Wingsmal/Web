@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { login, fetchWorkouts, createWorkout, updateWorkout, deleteWorkout } from './api';
+import { login, fetchWorkouts, createWorkout, updateWorkout, deleteWorkout, addExerciseToWorkout } from './api';
 import './App.css';
 
 const getUserFromToken = (token) => {
@@ -28,6 +28,10 @@ function App() {
   const [editId, setEditId] = useState(null); 
   const [filter, setFilter] = useState('Все');
 
+  // НОВЫЕ СОСТОЯНИЯ ДЛЯ ЛАБЫ 6 (Модальное окно упражнений)
+  const [selectedWorkout, setSelectedWorkout] = useState(null);
+  const [exerciseForm, setExerciseForm] = useState({ name: '', sets: '', reps: '' });
+
   useEffect(() => {
     if (!token) return;
 
@@ -37,7 +41,6 @@ function App() {
       setLoading(true);
       setError('');
       try {
-        await new Promise(resolve => setTimeout(resolve, 1500));
         const res = await fetchWorkouts(controller.signal);
         setWorkouts(res.data);
       } catch (err) {
@@ -94,8 +97,8 @@ function App() {
         alert('Ошибка при обновлении на сервере.');
       }
     } else {
-      const tempId = Date.now();
-      const newWorkout = { id: tempId, ...formData };
+      const tempId = Date.now().toString(); // Mongoose лучше "ест" строковые временные ID
+      const newWorkout = { id: tempId, ...formData, exercises: [] }; // Добавили пустой массив
       
       setWorkouts([...workouts, newWorkout]);
       setFormData({ title: '', duration: '', difficulty: 'Легкая' });
@@ -132,6 +135,42 @@ function App() {
     setFormData({ title: '', duration: '', difficulty: 'Легкая' });
   };
 
+  // ЛОГИКА ДОБАВЛЕНИЯ ВЛОЖЕННОГО ДОКУМЕНТА (ЛАБА 6)
+  const handleAddExercise = async (e) => {
+    e.preventDefault();
+    if (!exerciseForm.name) return;
+
+    const originalWorkouts = [...workouts];
+    const newExercise = { 
+      _id: Date.now().toString(), 
+      name: exerciseForm.name, 
+      sets: parseInt(exerciseForm.sets || 1), 
+      reps: parseInt(exerciseForm.reps || 10) 
+    };
+
+    // Оптимистичное обновление: добавляем упражнение в модалку и в общий стейт
+    const updatedWorkout = { 
+      ...selectedWorkout, 
+      exercises: [...(selectedWorkout.exercises || []), newExercise] 
+    };
+    
+    setSelectedWorkout(updatedWorkout);
+    setWorkouts(workouts.map(w => w.id === updatedWorkout.id ? updatedWorkout : w));
+    setExerciseForm({ name: '', sets: '', reps: '' });
+
+    try {
+      const res = await addExerciseToWorkout(updatedWorkout.id, newExercise);
+      // Сервер вернул документ с настоящими ObjectId, обновляем UI
+      setSelectedWorkout(res.data);
+      setWorkouts(prev => prev.map(w => w.id === res.data.id ? res.data : w));
+    } catch (err) {
+      setWorkouts(originalWorkouts);
+      setSelectedWorkout(originalWorkouts.find(w => w.id === updatedWorkout.id));
+      alert('Ошибка при добавлении упражнения!');
+    }
+  };
+
+
   const filteredWorkouts = workouts.filter((w) => {
     if (filter === 'Все') return true;
     return w.difficulty === filter;
@@ -148,7 +187,7 @@ function App() {
     }
   };
 
-   if (!token) {
+  if (!token) {
     return (
       <div className="app-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
         <div className="controls-panel" style={{ width: '100%', maxWidth: '400px' }}>
@@ -164,133 +203,173 @@ function App() {
     );
   }
 
-  // ГЛАВНЫЙ ЭКРАН (Шапка всегда на месте, контент меняется)
+  if (loading) {
+    return <div className="app-container"><div className="spinner">Загрузка данных с сервера...</div></div>;
+  }
+
+  if (error) {
+    return (
+      <div className="app-container">
+        <div style={{ color: '#ef4444', textAlign: 'center', marginTop: '50px' }}>
+          <h2>{error}</h2>
+          <button className="btn-blue" onClick={() => window.location.reload()} style={{margin: '20px auto'}}>Повторить попытку</button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="app-container">
+      
+      {/* МОДАЛЬНОЕ ОКНО ДЛЯ ПРОСМОТРА И ДОБАВЛЕНИЯ УПРАЖНЕНИЙ (ЛАБА 6) */}
+      {selectedWorkout && (
+        <div className="modal-overlay" onClick={() => setSelectedWorkout(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <button className="btn-icon" onClick={() => setSelectedWorkout(null)}>×</button>
+            <h2 style={{marginTop: 0, color: '#111827'}}>{selectedWorkout.title}</h2>
+            <p style={{color: '#6b7280', marginBottom: '20px'}}>Список упражнений в этой тренировке:</p>
+
+            <div style={{marginBottom: '25px', maxHeight: '300px', overflowY: 'auto'}}>
+              {(!selectedWorkout.exercises || selectedWorkout.exercises.length === 0) ? (
+                <p style={{color: '#9ca3af', fontStyle: 'italic'}}>Пока нет ни одного упражнения.</p>
+              ) : (
+                selectedWorkout.exercises.map(ex => (
+                  <div key={ex._id} className="exercise-item">
+                    <strong>{ex.name}</strong> <br/>
+                    <small style={{color: '#6b7280'}}>Подходов: {ex.sets} | Повторений: {ex.reps}</small>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Форму добавления упражнений показываем только Админу */}
+            {isAdmin && (
+              <form onSubmit={handleAddExercise} style={{display: 'flex', gap: '10px', flexDirection: 'column', borderTop: '1px solid #e5e7eb', paddingTop: '20px'}}>
+                <input type="text" className="form-input" placeholder="Название упражнения" required
+                  value={exerciseForm.name} onChange={e => setExerciseForm({...exerciseForm, name: e.target.value})} />
+                <div style={{display: 'flex', gap: '10px'}}>
+                  <input type="number" className="form-input" placeholder="Подходы (1)" style={{flex: 1}}
+                    value={exerciseForm.sets} onChange={e => setExerciseForm({...exerciseForm, sets: e.target.value})} />
+                  <input type="number" className="form-input" placeholder="Повторения (10)" style={{flex: 1}}
+                    value={exerciseForm.reps} onChange={e => setExerciseForm({...exerciseForm, reps: e.target.value})} />
+                </div>
+                <button type="submit" className="btn-blue" style={{width: '100%', height: '40px'}}>Добавить упражнение</button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="app-wrapper">
         
-        {/* ЗАГОЛОВОК И СТАТИСТИКА (Всегда видимы, если есть токен!) */}
         <div className="header-section">
           <h1 className="main-title">Тренировки</h1>
           
           <div className="stats-box">
             <div className="stats-item">
-              <span style={{fontSize: '0.85rem', color: '#2563eb', fontWeight: 'bold', marginBottom: '4px'}}>
-                {user?.email} ({isAdmin ? 'Админ' : 'Пользователь'})
-              </span>
+              <span style={{fontSize: '0.85rem', color: '#2563eb', fontWeight: 'bold', marginBottom: '4px'}}>{user?.email} ({isAdmin ? 'Админ' : 'Пользователь'})</span>
             </div>
-            
-            {/* Показываем цифры только если данные загрузились */}
-            {!loading && !error && (
-              <>
-                <div className="stats-item"><span>Всего:</span> <strong className="stats-value">{filteredWorkouts.length}</strong></div>
-                <div className="stats-item"><span>Время:</span> <strong className="stats-value">{totalDuration} мин</strong></div>
-              </>
-            )}
-            
+            <div className="stats-item"><span>Всего:</span> <strong className="stats-value">{filteredWorkouts.length}</strong></div>
+            <div className="stats-item"><span>Время:</span> <strong className="stats-value">{totalDuration} мин</strong></div>
             <button className="btn-delete" style={{ marginLeft: '10px' }} onClick={handleLogout}>Выйти</button>
           </div>
         </div>
 
-        {/* ДИНАМИЧЕСКИЙ КОНТЕНТ */}
-        {loading ? (
-          <div className="spinner">Загрузка данных с сервера...</div>
-        ) : error ? (
-          <div style={{ color: '#ef4444', textAlign: 'center', marginTop: '50px' }}>
-            <h2>{error}</h2>
-            <button className="btn-blue" onClick={() => window.location.reload()} style={{margin: '20px auto'}}>Повторить попытку</button>
-          </div>
-        ) : (
-          <>
-            <div className="controls-panel">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: isAdmin ? '20px' : '0' }}>
-                <div className="form-group filter-section">
-                  <label>Фильтр списка</label>
-                  <select className="form-input filter-input" value={filter} onChange={(e) => setFilter(e.target.value)}>
-                    <option value="Все">Все тренировки</option>
-                    <option value="Легкая">Только Легкие</option>
-                    <option value="Средняя">Только Средние</option>
-                    <option value="Тяжелая">Только Тяжелые</option>
-                  </select>
-                </div>
-
-                {!isAdmin && (
-                  <div style={{ color: '#6b7280', fontSize: '0.9rem', textAlign: 'right' }}>
-                    Только администраторы могут добавлять и изменять тренировки.
-                  </div>
-                )}
-              </div>
-
-              {isAdmin && (
-                <form className="add-form" onSubmit={handleFormSubmit} style={{ borderTop: '1px dashed #e5e7eb', paddingTop: '20px' }}>
-                  <h3 style={{ margin: '0 0 15px 0', color: '#374151', width: '100%', fontSize: '1.25rem' }}>
-                    {editId ? 'Редактирование' : 'Новая тренировка'}
-                  </h3>
-                  
-                  <div className="inputs-row">
-                    <div className="form-group title-group">
-                      <label>Название тренировки</label>
-                      <input type="text" name="title" className="form-input" value={formData.title} onChange={handleChange} required />
-                    </div>
-                    <div className="form-group">
-                      <label>Время (мин)</label>
-                      <input type="number" name="duration" className="form-input" value={formData.duration} onChange={handleChange} required />
-                    </div>
-                    <div className="form-group">
-                      <label>Сложность</label>
-                      <select name="difficulty" className="form-input" value={formData.difficulty} onChange={handleChange}>
-                        <option value="Легкая">Легкая</option>
-                        <option value="Средняя">Средняя</option>
-                        <option value="Тяжелая">Тяжелая</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="actions-row" style={{ justifyContent: 'flex-end', borderTop: 'none', paddingTop: 0 }}>
-                    <div className="form-actions">
-                      {editId && (
-                        <button type="button" className="btn-delete" onClick={cancelEdit}>Отмена</button>
-                      )}
-                      <button type="submit" className={editId ? 'btn-outline-green' : 'btn-outline-blue'}>
-                        {editId ? 'Сохранить изменения' : 'Добавить'}
-                      </button>
-                    </div>
-                  </div>
-                </form>
-              )}
+        <div className="controls-panel">
+          
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: isAdmin ? '20px' : '0' }}>
+            <div className="form-group filter-section">
+              <label>Фильтр списка</label>
+              <select className="form-input filter-input" value={filter} onChange={(e) => setFilter(e.target.value)}>
+                <option value="Все">Все тренировки</option>
+                <option value="Легкая">Только Легкие</option>
+                <option value="Средняя">Только Средние</option>
+                <option value="Тяжелая">Только Тяжелые</option>
+              </select>
             </div>
 
-            {filteredWorkouts.length === 0 ? (
-              <div className="empty-state">Нет данных. Добавьте тренировку.</div>
-            ) : (
-              <div className="workouts-grid">
-                {filteredWorkouts.map((workout) => (
-                  <div key={workout.id} className="workout-card">
-                    <span className={`badge ${getBadgeClass(workout.difficulty)}`}>
-                      {workout.difficulty}
-                    </span>
-
-                    <h3 className="card-title">{workout.title}</h3>
-                    
-                    <div className="card-info">
-                      Длительность: <strong>{workout.duration} мин</strong>
-                    </div>
-
-                    {isAdmin && (
-                      <div className="card-actions">
-                        <button className="btn-outline-blue" onClick={() => startEdit(workout)}>
-                          Изменить
-                        </button>
-                        <button className="btn-delete" onClick={() => handleDelete(workout.id)}>
-                          Удалить
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ))}
+            {!isAdmin && (
+              <div style={{ color: '#6b7280', fontSize: '0.9rem', textAlign: 'right' }}>
+                Только администраторы могут добавлять и изменять тренировки.
               </div>
             )}
-          </>
+          </div>
+
+          {isAdmin && (
+            <form className="add-form" onSubmit={handleFormSubmit} style={{ borderTop: '1px dashed #e5e7eb', paddingTop: '20px' }}>
+              <h3 style={{ margin: '0 0 15px 0', color: '#374151', width: '100%', fontSize: '1.25rem' }}>
+                {editId ? 'Редактирование' : 'Новая тренировка'}
+              </h3>
+              
+              <div className="inputs-row">
+                <div className="form-group title-group">
+                  <label>Название тренировки</label>
+                  <input type="text" name="title" className="form-input" value={formData.title} onChange={handleChange} required />
+                </div>
+                <div className="form-group">
+                  <label>Время (мин)</label>
+                  <input type="number" name="duration" className="form-input" value={formData.duration} onChange={handleChange} required />
+                </div>
+                <div className="form-group">
+                  <label>Сложность</label>
+                  <select name="difficulty" className="form-input" value={formData.difficulty} onChange={handleChange}>
+                    <option value="Легкая">Легкая</option>
+                    <option value="Средняя">Средняя</option>
+                    <option value="Тяжелая">Тяжелая</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="actions-row" style={{ justifyContent: 'flex-end', borderTop: 'none', paddingTop: 0 }}>
+                <div className="form-actions">
+                  {editId && (
+                    <button type="button" className="btn-delete" onClick={cancelEdit}>Отмена</button>
+                  )}
+                  <button type="submit" className={editId ? 'btn-outline-green' : 'btn-outline-blue'}>
+                    {editId ? 'Сохранить изменения' : 'Добавить'}
+                  </button>
+                </div>
+              </div>
+            </form>
+          )}
+
+        </div>
+
+        {filteredWorkouts.length === 0 ? (
+          <div className="empty-state">Нет данных. Добавьте тренировку.</div>
+        ) : (
+          <div className="workouts-grid">
+            {filteredWorkouts.map((workout) => (
+              <div key={workout.id} className="workout-card">
+                <span className={`badge ${getBadgeClass(workout.difficulty)}`}>
+                  {workout.difficulty}
+                </span>
+
+                <h3 className="card-title">{workout.title}</h3>
+                
+                <div className="card-info">
+                  Длительность: <strong>{workout.duration} мин</strong>
+                </div>
+
+                {/* НОВАЯ КНОПКА ПОДРОБНЕЕ */}
+                <button className="btn-details" onClick={() => setSelectedWorkout(workout)}>
+                  Показать упражнения ({workout.exercises ? workout.exercises.length : 0})
+                </button>
+
+                {isAdmin && (
+                  <div className="card-actions" style={{marginTop: '15px'}}>
+                    <button className="btn-outline-blue" onClick={() => startEdit(workout)}>
+                      Изменить
+                    </button>
+                    <button className="btn-delete" onClick={() => handleDelete(workout.id)}>
+                      Удалить
+                    </button>
+                  </div>
+                )}
+
+              </div>
+            ))}
+          </div>
         )}
 
       </div>

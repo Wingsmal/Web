@@ -1,10 +1,8 @@
-
-const { Workout } = require('../models');
+const Workout = require('../models/workoutModel');
 
 const getAllWorkouts = async (req, res, next) => {
     try {
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        const workouts = await Workout.findAll();
+        const workouts = await Workout.find();
         res.status(200).json(workouts);
     } catch (error) {
         next(error);
@@ -13,21 +11,20 @@ const getAllWorkouts = async (req, res, next) => {
 
 const getWorkoutById = async (req, res, next) => {
     try {
-        const id = parseInt(req.params.id);
-        const workout = await Workout.findByPk(id);
-
+        const workout = await Workout.findById(req.params.id); 
         if (!workout) {
-            return res.status(404).json({ error: "Тренировка с таким ID не найдена" });
+            return res.status(404).json({ error: "Тренировка не найдена" });
         }
         res.status(200).json(workout);
     } catch (error) {
+        if (error.name === 'CastError') return res.status(404).json({ error: "Неверный формат ID" });
         next(error);
     }
 };
 
 const createWorkout = async (req, res, next) => {
     try {
-        const { title, duration, difficulty, calories } = req.body;
+        const { title, duration, difficulty, calories, exercises } = req.body;
 
         if (!title || !duration) {
             return res.status(400).json({ error: "Необходимы поля title и duration" });
@@ -36,8 +33,9 @@ const createWorkout = async (req, res, next) => {
         const newWorkout = await Workout.create({
             title,
             duration,
-            difficulty: difficulty || "Не указана",
-            calories: calories || 0 
+            difficulty: difficulty || "Легкая",
+            calories: calories || 0,
+            exercises: exercises || [] 
         });
 
         res.status(201).json(newWorkout);
@@ -48,39 +46,55 @@ const createWorkout = async (req, res, next) => {
 
 const updateWorkout = async (req, res, next) => {
     try {
-        const id = parseInt(req.params.id);
-        const { title, duration, difficulty, calories} = req.body;
+        const { title, duration, difficulty, calories, exercises } = req.body;
 
-        if (!title || !duration) {
-            return res.status(400).json({ error: "Необходимы поля title и duration для обновления" });
+        const updatedWorkout = await Workout.findByIdAndUpdate(
+            req.params.id,
+            { title, duration, difficulty, calories, exercises },
+            { new: true, runValidators: true }
+        );
+
+        if (!updatedWorkout) {
+            return res.status(404).json({ error: "Тренировка не найдена" });
         }
 
-        const workout = await Workout.findByPk(id);
-        if (!workout) {
-            return res.status(404).json({ error: "Тренировка с таким ID не найдена" });
-        }
-
-        await workout.update({ title, duration, difficulty, calories });
-        res.status(200).json(workout);
+        res.status(200).json(updatedWorkout);
     } catch (error) {
+        if (error.name === 'CastError') return res.status(404).json({ error: "Неверный формат ID" });
         next(error);
     }
 };
 
 const deleteWorkout = async (req, res, next) => {
     try {
-        const id = parseInt(req.params.id);
-        
-        const deletedCount = await Workout.destroy({ where: { id } });
+        const deletedWorkout = await Workout.findByIdAndDelete(req.params.id); // Было destroy()
 
-        if (deletedCount === 0) {
-            return res.status(404).json({ error: "Тренировка с таким ID не найдена" });
+        if (!deletedWorkout) {
+            return res.status(404).json({ error: "Тренировка не найдена" });
         }
 
-        res.status(200).json({ message: "Тренировка успешно удалена" });
+        res.status(200).json({ message: "Тренировка успешно удалена", workout: deletedWorkout });
+    } catch (error) {
+        if (error.name === 'CastError') return res.status(404).json({ error: "Неверный формат ID" });
+        next(error);
+    }
+};
+
+const addExercise = async (req, res, next) => {
+    try {
+        const { name, sets, reps } = req.body;
+        
+        const updatedWorkout = await Workout.findByIdAndUpdate(
+            req.params.id,
+            { $push: { exercises: { name, sets, reps } } },
+            { new: true }
+        );
+
+        if (!updatedWorkout) return res.status(404).json({ error: "Тренировка не найдена" });
+        res.status(200).json(updatedWorkout);
     } catch (error) {
         next(error);
     }
 };
 
-module.exports = { getAllWorkouts, getWorkoutById, createWorkout, updateWorkout, deleteWorkout };
+module.exports = { getAllWorkouts, getWorkoutById, createWorkout, updateWorkout, deleteWorkout, addExercise };
