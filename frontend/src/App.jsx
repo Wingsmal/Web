@@ -8,7 +8,7 @@ import {
   addExerciseToWorkout, 
   deleteExerciseFromWorkout 
 } from './api';
-import LiveChat from './LiveChat'; // ИМПОРТ ЧАТА
+import LiveChat from './LiveChat'; 
 import './App.css';
 
 const getUserFromToken = (token) => {
