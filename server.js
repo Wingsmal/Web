@@ -15,7 +15,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(loggerMiddleware);
 
 app.get('/login', (req, res) => {
-    res.send('<h2>Вы не авторизованы!</h2><a href="/?auth=1">Войти с правами (добавить ?auth=1)</a>');
+    res.render('login', { isAuth: false });
 });
 
 app.use('/workouts', workoutRoutes);

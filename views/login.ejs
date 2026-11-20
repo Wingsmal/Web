@@ -1,0 +1,24 @@
+<%- include('partials/header') %>
+
+<div class="card shadow-sm w-50 mx-auto mt-5">
+    <div class="card-header bg-success text-white">Авторизация в системе</div>
+    <div class="card-body">
+        <form action="/workouts" method="GET">
+            <input type="hidden" name="auth" value="1">
+            
+            <div class="mb-3">
+                <label class="form-label">Электронная почта:</label>
+                <input type="email" name="email" class="form-control" required maxlength="100">
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">Пароль:</label>
+                <input type="password" name="password" class="form-control" required maxlength="100">
+            </div>
+            
+            <button type="submit" class="btn btn-success w-100">Войти</button>
+        </form>
+    </div>
+</div>
+
+<%- include('partials/footer') %>
